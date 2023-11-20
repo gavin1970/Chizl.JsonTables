@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chizl.JsonTables", "Chizl.JsonTables\Chizl.JsonTables.csproj", "{F858535A-860C-448D-8312-A8AA2864A621}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DemoConsole", "DemoConsole\DemoConsole.csproj", "{E26C88E1-3970-410C-B161-DC8108DE21B1}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F858535A-860C-448D-8312-A8AA2864A621}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F858535A-860C-448D-8312-A8AA2864A621}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F858535A-860C-448D-8312-A8AA2864A621}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F858535A-860C-448D-8312-A8AA2864A621}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E26C88E1-3970-410C-B161-DC8108DE21B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E26C88E1-3970-410C-B161-DC8108DE21B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E26C88E1-3970-410C-B161-DC8108DE21B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E26C88E1-3970-410C-B161-DC8108DE21B1}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9BBED6FB-E0A5-4D85-A4EB-42B6DFC4C281}
+	EndGlobalSection
+EndGlobal
