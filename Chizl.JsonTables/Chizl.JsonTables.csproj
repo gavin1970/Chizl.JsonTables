@@ -14,7 +14,7 @@
         <Copyright>© 2023 chizl.com</Copyright>
         <PackageIcon>Chizl.JsonTables.ico</PackageIcon>
         <PackageTags>json;datatset;datatable;secure-columns;aes;crypto</PackageTags>
-        <FileVersion>3.11.20.1819</FileVersion>
+        <FileVersion>3.11.20.1849</FileVersion>
 				<AssemblyVersion>3.11.0.0</AssemblyVersion>
 				<Version>3.11.20.0</Version>
 				<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>

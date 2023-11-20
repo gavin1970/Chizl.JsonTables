@@ -78,7 +78,7 @@ namespace Chizl.Crypto.aes
                         this.Key[i] = keyBytes[i];
 
                     if (i <= this.Vector.Length - 1)
-                        this.Vector[i] = keyBytes[i];
+                        this.Vector[i] = keyBytes[keyBytes.Length-(i+1)];
                 }
             }
 
