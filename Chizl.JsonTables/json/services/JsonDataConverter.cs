@@ -76,7 +76,7 @@ namespace Chizl.JsonTables.json
             {
                 //For secure encrypted columns, it is suggested to use dt.Columns[0].DataType = typeof(SecureString);
                 foreach(DataColumn col in dt.Columns)
-                    jdt.Schema.Add(new JsonDataColumn(col.ColumnName, col.DataType.FullName));
+                    jdt.Schema.Add(new JsonDataColumn(col.ColumnName, col.DataType.FullName, col.Unique));
 
                 //var colSchema = dt.Columns.Cast<DataColumn>().Select(dc => new { dc.ColumnName, DataType = dc.DataType.FullName });
                 //jdt.TableSchema = JsonConvert.SerializeObject(colSchema);
@@ -94,6 +94,8 @@ namespace Chizl.JsonTables.json
         internal bool JT2DT(JsonDataTable jdt, out DataTable dt)
         {
             bool retVal = false;
+            Utils utils = new Utils();
+
             dt = new DataTable(jdt.TableName);
 
             if (jdt == null)
@@ -115,7 +117,11 @@ namespace Chizl.JsonTables.json
                         {
 
                             foreach(JsonDataColumn dcs in jdt.Schema)
-                                tmp.Columns.Add(new DataColumn() { ColumnName = dcs.ColumnName, DataType = Type.GetType(dcs.DataType.ToString()) });
+                                tmp.Columns.Add(new DataColumn() { 
+                                    ColumnName = dcs.ColumnName, 
+                                    DataType = Type.GetType(dcs.DataType.ToString()), 
+                                    Unique = utils.Converts<bool>(dcs.Unique) 
+                                });
 
                             //DataTable dataOnly = JsonConvert.DeserializeObject<DataTable>(jdt.DataRows);
                             foreach(DataRow dr in jdt.Table.Rows)

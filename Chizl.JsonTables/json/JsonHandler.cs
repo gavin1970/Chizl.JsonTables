@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.Net;
@@ -15,6 +16,8 @@ namespace Chizl.JsonTables.json
         #region Properties
         #region Public
         public Exception LastError { get; private set; } = new Exception(null);
+        public WarningException LastWarning { get; private set; } = new WarningException(null);
+
         public bool FileExists { get; private set; } = false;
         #endregion
         
@@ -140,6 +143,8 @@ namespace Chizl.JsonTables.json
                     LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(dataColumn));
                 else
                 {
+                    LastError = new Exception(null);
+
                     //auto create table if doesn't exist.
                     if (!mr_dataSet.Tables.Contains(tableName))
                     {
@@ -152,6 +157,8 @@ namespace Chizl.JsonTables.json
                         mr_dataSet.Tables[tableName].Columns.Add(dataColumn);
                         retVal = true;
                     }
+                    else
+                        LastWarning = new WarningException($"Column '{dataColumn}' already exists in '{tableName}'.");
                 }
             }
             catch (Exception ex)
@@ -211,7 +218,7 @@ namespace Chizl.JsonTables.json
                 else if (mr_dataSet.Tables.Contains(tableName))
                 {
                     if (mr_dataSet.Tables[tableName].Columns.Contains(columnName))
-                        retVal = IsSecured(mr_dataSet.Tables[tableName].Columns[columnName].DataType);
+                        retVal = mr_dataSet.Tables[tableName].Columns[columnName].DataType == typeof(SecureString);
                     else
                         LastError = new ArgumentException(Constants.COLUMN_MISSING, nameof(columnName));
                 }
@@ -222,15 +229,6 @@ namespace Chizl.JsonTables.json
             }
 
             return retVal;
-        }
-        /// <summary>
-        /// Return if column is secured or not.
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public bool IsSecured(object value)
-        {
-            return value.GetType().Name.Equals("SecureString");
         }
         /// <summary>
         /// Generic to get column from a DataRow
@@ -370,14 +368,19 @@ namespace Chizl.JsonTables.json
 
             return retVal;
         }
-        public bool SaveRecord(string tableName, DataRow dataRow, string where = null)
+        public bool SaveRecord(string tableName, DataRow dataRow)
         {
-            return SaveRecords(tableName, new DataRow[] { dataRow }, where);
+            return SaveRecord(tableName, dataRow, string.Empty, out int _);
         }
-        public bool SaveRecords(string tableName, DataRow[] dataRows, string where = null)
+        public bool SaveRecord(string tableName, DataRow dataRow, out int affectCount)
+        {
+            return SaveRecord(tableName, dataRow, string.Empty, out affectCount);
+        }
+        public bool SaveRecord(string tableName, DataRow dataRow, string where, out int affectCount)
         {
             bool retVal = false;
             bool addRecord = false;
+            affectCount = 0;
 
             where = Utils.CleanQuery(where);
 
@@ -391,11 +394,12 @@ namespace Chizl.JsonTables.json
                     {
                         if (GetRecords(tableName, where, string.Empty, out DataRow[] retData))
                         {
+                            affectCount = retData.Length;
                             foreach (DataRow dr in retData)
                             {
                                 foreach (DataColumn dc in mr_dataSet.Tables[tableName].Columns)
                                 {
-                                    dr[dc.ColumnName] = dataRows[0][dc.ColumnName];
+                                    dr[dc.ColumnName] = dataRow[dc.ColumnName];
                                 }
                             }
                         }
@@ -406,10 +410,8 @@ namespace Chizl.JsonTables.json
                         addRecord = true;
 
                     if (addRecord)
-                    {
-                        foreach (DataRow dr in dataRows)
-                            mr_dataSet.Tables[tableName].Rows.Add(dr);
-                    }
+                        mr_dataSet.Tables[tableName].Rows.Add(dataRow);
+
                     retVal = Flush();
                 }
                 catch (Exception ex)
@@ -445,9 +447,10 @@ namespace Chizl.JsonTables.json
 
             return retVal;
         }
-        public bool DeleteRecords(string tableName, string where)
+        public bool DeleteRecords(string tableName, string where, out int affectCount)
         {
             bool retVal = false;
+            affectCount = 0;
 
             if (!TableExists(tableName))
                 LastError = new Exception($"Table '{tableName}' doesn't exist.");
@@ -458,6 +461,7 @@ namespace Chizl.JsonTables.json
                     where = Utils.CleanQuery(where);
 
                     DataRow[] drs = mr_dataSet.Tables[tableName].Select(where);
+                    affectCount = drs.Length;
                     foreach (DataRow dr in drs)
                         mr_dataSet.Tables[tableName].Rows.Remove(dr);
 
@@ -468,6 +472,7 @@ namespace Chizl.JsonTables.json
                 }
                 catch (Exception ex)
                 {
+                    affectCount = 0;
                     LastError = ex;
                 }
             }

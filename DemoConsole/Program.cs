@@ -4,6 +4,7 @@ using System.Data;
 using System.Net;
 using System.Security;
 using System.Diagnostics.CodeAnalysis;
+using System.Xml;
 
 internal class Program
 {
@@ -27,6 +28,7 @@ internal class Program
     //    Console.Write($"{c}, ");
     static readonly byte[] byteSec = new byte[] { 89, 85, 55, 105, 99, 75, 72, 107, 86, 112, 53, 97, 65, 82, 113, 75 };
     static readonly SecureString piSecureString = new();
+    static Guid testID = Guid.NewGuid();
         
     [AllowNull]
     static JsonHandler m_JsonProcessing;
@@ -47,34 +49,38 @@ internal class Program
         // piSecureString is only used on fields that are SecuredString column types.
         m_JsonProcessing = new(fileName, dataSetName, piSecureString);
 
-        CreateTable(tableName1, false);             //create new table (1)
-        CreateTable(tableName2, false);             //create new table (2)
-        CreateRecords(tableName1, true);            //create a new record (1)
-        CreateRecords(tableName1, false);           //create a second record (1a)
-        CreateRecords(tableName2, true);            //create a new record (only 1 for table 2)
+        CreateTable(tableName1, false);                     //create new table (1)
+        CreateTable(tableName2, false);                     //create new table (2)
 
-        Guid guid1 = ReadRecords(tableName1, true); //read all records, get first guid back for future select
-        GetRecord(tableName1, guid1, true);         //pull one record by id (1)
+        CreateRecords(tableName1, true, testID);            //create a new record (1)
+        CreateRecords(tableName1, false, testID);           //Will FAIL because ID should be Unique based on DataTable
+        CreateRecords(tableName1, false, Guid.Empty);       //create a second record (1a)
+        CreateRecords(tableName2, true, Guid.Empty);        //create a new record (only 1 for table 2)
+
+        bool isSecured = m_JsonProcessing.IsSecured(tableName1, ColNames.Password.ToString());
+
+        Guid guid1 = ReadRecords(tableName1, true);         //read all records, get first guid back for future select
+        GetRecord(tableName1, guid1, true);                 //pull one record by id (1)
         
-        UpdateRecord(tableName1, guid1, true);      //change 1 record by id (1)
-        ReadRecords(tableName1, true);              //view all records to see the 1 changed record (1)
+        UpdateRecord(tableName1, guid1, true);              //change 1 record by id (1)
+        ReadRecords(tableName1, true);                      //view all records to see the 1 changed record (1)
 
-        Guid guid2 = ReadRecords(tableName2, true); //read all records, get first guid back for future select
-        GetRecord(tableName2, guid2, true);         //pull one record by id
+        Guid guid2 = ReadRecords(tableName2, true);         //read all records, get first guid back for future select
+        GetRecord(tableName2, guid2, true);                 //pull one record by id
 
-        UpdateRecord(tableName2, guid2, true);      //change 1 record by id
-        ReadRecords(tableName2, true);              //view all records to see the 1 changed record
+        UpdateRecord(tableName2, guid2, true);              //change 1 record by id
+        ReadRecords(tableName2, true);                      //view all records to see the 1 changed record
 
-        DeleteRecord(tableName1, guid1, true);      //delete record
-        ReadRecords(tableName1, true);              //view all records to see 1 record was deleted
+        DeleteRecord(tableName1, guid1, true);              //delete record
+        ReadRecords(tableName1, true);                      //view all records to see 1 record was deleted
 
-        DeleteRecord(tableName2, guid2, true);      //delete record
-        ReadRecords(tableName2, true);              //view all records to see 0 records exist
+        DeleteRecord(tableName2, guid2, true);              //delete record
+        ReadRecords(tableName2, true);                      //view all records to see 0 records exist
 
-        DeleteTable(tableName1, true);              //delete table
-        DeleteTable(tableName2, true);              //delete table
+        DeleteTable(tableName1, true);                      //delete table
+        DeleteTable(tableName2, true);                      //delete table
 
-        CrtypoExample(true);    //shows how crypto is used inside and can be used by itself.
+        CrtypoExample(true);                                //shows how crypto is used inside and can be used by itself.
 
         //clean up
         piSecureString.Dispose();
@@ -85,7 +91,7 @@ internal class Program
     {
         Heading($"Create Table: '{tableName}'", clearConsole);
 
-        bool success = true;
+        bool success = false, hadException = false;
         string msg;
 
         //validate table exists
@@ -93,21 +99,36 @@ internal class Program
         {
             // Table Defs 
             List<DataColumn> allCols = new() {
-                new($"{ColNames.ID}", typeof(Guid)),
+                new($"{ColNames.ID}", typeof(Guid)) { Unique=true },
                 new($"{ColNames.Name}", typeof(string)),
                 new($"{ColNames.CreatedDate}", typeof(DateTime)),
                 new($"{ColNames.Password}", typeof(SecureString))   //secured data.
             };
 
-            // Create columns by passing the whole array.
-            // success = m_JsonProcessing.AddColumns(tableName, allCols.ToArray());
+            if (tableName.Equals(tableName1))
+            {
+                // Create columns by passing the whole array.
+                if (m_JsonProcessing.AddColumns(tableName, allCols.ToArray()))
+                {
+                    if (!m_JsonProcessing.Flush())
+                        Console.WriteLine($"Exception occured flusing table '{tableName} after adding all columns':\n\t{m_JsonProcessing.LastError.Message}");
+                    else
+                        Console.WriteLine($"Success, Table '{tableName}' created with ALL columns at once.\nExpecting the next to have warnings on all columns since they already exist.\n---------------------------");
+                }
+                else
+                    Console.WriteLine($"Exception occured adding ALL columns to table '{tableName}':\n\t{m_JsonProcessing.LastError.Message}");
+            }
 
             // Create columns 1 by 1
             foreach (DataColumn col in allCols)
             {
-                success = m_JsonProcessing.AddColumn(tableName, col, out bool hadException);
-                if (!success && hadException)
+                success = m_JsonProcessing.AddColumn(tableName, col, out hadException);
+                //looking for 'hadException' because if column already exists, it's
+                //not an exception, but not successfully added.
+                if (hadException)   
                     Console.WriteLine($"Exception occured adding columns table:\n\t{m_JsonProcessing.LastError.Message}");
+                else if(!success && !hadException)
+                    Console.WriteLine(m_JsonProcessing.LastWarning?.Message);  //display why column wasn't added, if message exists.
             }
 
             // Save to Disk 
@@ -115,11 +136,13 @@ internal class Program
 
             // Display success of failure 
             msg = success ? 
-                $"Success, Table '{tableName}' created." : 
-                $"Exception Occured:\n\t{m_JsonProcessing.LastError.Message}";
+                $"Success, Table '{tableName}' created." :
+                    hadException ?
+                        $"Exception Occured:\n\t{m_JsonProcessing.LastError.Message}" :
+                        $"See above warnings.";
         }
         else
-            msg = $"Table '{tableName}' created already exists.";
+            msg = $"Table '{tableName}' already exists.";
 
         PressAnyKey(msg);
     }
@@ -145,10 +168,13 @@ internal class Program
     #endregion
 
     #region Record Examples
-    static void CreateRecords(string tableName, bool clearConsole)
+    static void CreateRecords(string tableName, bool clearConsole, Guid id)
     {
         Heading($"Create Records Example for Table: '{tableName}'", clearConsole);
         string msg;
+
+        if (!clearConsole && id.Equals(testID))
+            Console.WriteLine($"Expecting the next record create to FAIL, because the record id '{id}' already exists.");
 
         //validate table exists
         if (m_JsonProcessing.TableExists(tableName))
@@ -156,13 +182,14 @@ internal class Program
             //create a new record
             if(m_JsonProcessing.CreateRecord(tableName, out DataRow dr))
             {
-                dr[$"{ColNames.ID}"] = Guid.NewGuid();
+                id = id == Guid.Empty ? Guid.NewGuid() : id;
+                dr[$"{ColNames.ID}"] = id;
                 dr[$"{ColNames.Name}"] = "Chizl Tester";
                 dr[$"{ColNames.CreatedDate}"] = DateTime.UtcNow;
                 dr[$"{ColNames.Password}"] = JsonHandler.SecuredString(securedFieldValue1);
 
                 if (m_JsonProcessing.SaveRecord(tableName, dr))
-                    msg = $"Success, Table '{tableName}' record save.";
+                    msg = $"Success, Table '{tableName}' saved record id: {id}.";
                 else
                     msg = $"Exception occured while saving record:\n\t{m_JsonProcessing.LastError.Message}";
             }
@@ -171,7 +198,6 @@ internal class Program
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";
-
 
         PressAnyKey(msg);
     }
@@ -305,56 +331,43 @@ internal class Program
             if (m_JsonProcessing.GetRecords(tableName, $"ID='{guid}'", string.Empty, out DataRow[] data))
             {
                 //check length, so we can have a custom message during else.
-                if (data.Length > 0)
-                {
-                    //BUG IN VISUAL STUDIO?   I have to add the msg="" here or VS thinks it might be null on PressAnyKey(msg) below.
-                    //The if statement above, checks data length before the for loop specifically for that reason.
-                    //No reason this should be required, so I believe it's a BUG.
-                    msg = "";  //<-- do this or initialize at the start.  Leaving this here to show the issue.
-
-                    try
-                    {
-                        //DataRow dr = data[0];         //get first record, should never be more than 1 in this case.
-                        foreach (DataRow dr in data)    //or update them all
-                        {
-                            dr[$"{ColNames.Password}"] = JsonHandler.SecuredString(securedFieldValue2);
-
-                            //To save more than 1 at a time, use: m_JsonProcessing.SaveRecords(tableName: ..., dataRows: DataRows[], where: ...)
-                            //Saves each record by themselves.
-                            if (m_JsonProcessing.SaveRecord(tableName: tableName, dataRow: dr, where: $"ID='{guid}'"))
-                            {
-                                msg = "Successfully updated record.";
-                            }
-                            else
-                            {
-                                msg = $"Exception occured while updating the record.\n\t{m_JsonProcessing.LastError.Message}";
-                            }
-                        }
-                    }
-                    catch(Exception e)
-                    {
-                        msg = $"Unexpected Exception occured while saving records.\n\t{e.Message}";
-                    }
-
-                }
+                if (data.Length.Equals(0))
+                    msg = "Record not found.";
                 else
                 {
-                    msg = "Record not found.";
+                    //required because compiler doesn't understand that the above sets msg
+                    //when no data and the foreach below will set msg if there is data.
+                    msg = "dumb compiler";   //this will be overwritten in the foreach.
+                }
+
+                try
+                {
+                    foreach (DataRow dr in data)    //or update them all
+                    {
+                        dr[$"{ColNames.Password}"] = JsonHandler.SecuredString(securedFieldValue2);
+
+                        //To save more than 1 at a time, use: m_JsonProcessing.SaveRecords(tableName: ..., dataRows: DataRows[], where: ...)
+                        //Saves each record by themselves.
+                        if (m_JsonProcessing.SaveRecord(tableName: tableName, dataRow: dr, where: $"ID='{guid}'", out int affectedCount) && affectedCount > 0)
+                            msg = "Successfully updated record.";
+                        else if (affectedCount.Equals(0))
+                            msg = $"Table '{tableName}' didn't save any records matching your criteria.";
+                        else
+                            msg = $"Exception occured while updating the record.\n\t{m_JsonProcessing.LastError.Message}";
+                    }
+                }
+                catch(Exception e)
+                {
+                    msg = $"Unexpected Exception occured while saving records.\n\t{e.Message}";
                 }
             }
             else if (m_JsonProcessing.LastError != null)
-            {
                 msg = $"Exception occured while searching for record.\n\t{m_JsonProcessing.LastError.Message}";
-            }
             else
-            {
                 msg = "Unable to get record for unknown reasons";
-            }
         }
         else
-        {
             msg = $"Table '{tableName}' doesn't exists.";
-        }
 
         PressAnyKey(msg);
     }
@@ -366,8 +379,10 @@ internal class Program
         //validate table exists
         if (m_JsonProcessing.TableExists(tableName))
         {
-            if (m_JsonProcessing.DeleteRecords(tableName, $"ID='{guid}'"))
+            if (m_JsonProcessing.DeleteRecords(tableName, $"ID='{guid}'", out int affectedCount) && affectedCount > 0)
                 msg = "Successfully deleted record.";
+            else if (affectedCount.Equals(0))
+                msg = $"Table '{tableName}' didn't find any records matching ID='{guid}' for deletion.";
             else
                 msg = $"Failed to delete record\n\t{m_JsonProcessing.LastError.Message}";
         }
