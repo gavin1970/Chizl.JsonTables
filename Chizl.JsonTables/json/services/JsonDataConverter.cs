@@ -206,7 +206,7 @@ namespace Chizl.JsonTables.json
                 {
                     //set table schema and convert data to strings
                     if (DT2JT(dt, out JsonDataTable jdt))
-                        jds.JsonDataTables.Add(jdt);
+                        jds.DataTables.Add(jdt);
                 }
             } 
             catch(Exception ex)
@@ -235,7 +235,7 @@ namespace Chizl.JsonTables.json
                     ds.DataSetName = $"{Constants.BASE_DATASET_NAME}_{DateTime.UtcNow.Ticks}";
 
                 //loop through Json tables and add them to DataSet
-                foreach (JsonDataTable jdt in jds.JsonDataTables)
+                foreach (JsonDataTable jdt in jds.DataTables)
                 {
                     //convert Json table to DataTable
                     if (JT2DT(jdt, out DataTable dt))

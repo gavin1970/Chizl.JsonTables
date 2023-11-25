@@ -10,6 +10,6 @@ namespace Chizl.JsonTables.json
         {
             DataSetName = dataSetName ?? throw new ArgumentNullException(nameof(dataSetName));
         }
-        public List<JsonDataTable> JsonDataTables { get; set; } = new List<JsonDataTable>();
+        public List<JsonDataTable> DataTables { get; set; } = new List<JsonDataTable>();
     }
 }
