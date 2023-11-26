@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.IO;
 using System.Net;
 using System.Security;
+using System.Text;
 
 namespace Chizl.JsonTables.json
 {
@@ -15,8 +14,7 @@ namespace Chizl.JsonTables.json
 
         #region Properties
         #region Public
-        public Exception LastError { get; private set; } = new Exception(null);
-        public WarningException LastWarning { get; private set; } = new WarningException(null);
+        public List<CJRespInfo> RespInfo { get; private set; } = new List<CJRespInfo>();
 
         public bool FileExists { get; private set; } = false;
         #endregion
@@ -34,33 +32,38 @@ namespace Chizl.JsonTables.json
                 throw new ArgumentException(Constants.ARGS_MISSING, nameof(dataFileName));
 
             JsonFile = new JsonIO(dataFileName);
+            var respStatus = new CJRespInfo();
 
             mr_jsonConverter = new JsonDataConverter(dataSetName, encSalt);
             mr_dataSet = new DataSet(dataSetName);
 
-            if (!JsonFile.LoadFile(dataSetName, out JsonDataSet jsonDataSet))
-            {
-                LastError = JsonFile.Error;
-                if (LastError.GetType() == typeof(FileNotFoundException))
-                {
-                    FileExists = false;
-                    LastError = new Exception(null);
-                }
-                else
-                    FileExists = true;
-            }
+            if (!JsonFile.LoadFile(dataSetName, out JsonDataSet jsonDataSet, out respStatus))
+                FileExists = JsonFile.FileExists;
             else
                 FileExists = true;
 
-            if (jsonDataSet != null
-                && !jsonDataSet.DataSetName.Equals("Invalid"))
+            if (jsonDataSet != null && !jsonDataSet.DataSetName.Equals(Constants.DEFAULT_LOADING))
+                mr_jsonConverter.ToDataSet(jsonDataSet, out mr_dataSet, out respStatus);
+
+            StringBuilder sb = new StringBuilder();
+
+            if (respStatus.HasErrors || respStatus.HasWarnings)
+                sb = new StringBuilder($"While in {respStatus.ClassName} the following issues occured:");
+
+            if (respStatus.HasErrors)
             {
-                if (!mr_jsonConverter.ToDataSet(jsonDataSet, out mr_dataSet))
-                {
-                    LastError = mr_jsonConverter.LastError;
-                    throw LastError;
-                }
+                sb.AppendLine("Errors:");
+                sb.AppendLine(string.Join(Environment.NewLine, respStatus.Errors));
             }
+
+            if (respStatus.HasWarnings)
+            {
+                sb.AppendLine("Warnings:");
+                sb.AppendLine(string.Join(Environment.NewLine, respStatus.Warnings));
+            }
+
+            if (sb.Length > 0)
+                throw new Exception(sb.ToString());
         }
         #endregion
 
@@ -71,40 +74,43 @@ namespace Chizl.JsonTables.json
         /// <param name="columnName"></param>
         /// <param name="tableName"></param>
         /// <returns></returns>
-        public bool ColumnExists(string tableName, string columnName)
+        public bool ColumnExists(string tableName, string columnName, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            RespInfo = new List<CJRespInfo>();
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (string.IsNullOrWhiteSpace(tableName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(tableName));
+                if (string.IsNullOrWhiteSpace(tableName)) 
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(tableName)}");
                 else if (string.IsNullOrWhiteSpace(columnName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(columnName));
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(columnName)}");
+                else if (!mr_dataSet.Tables.Contains(tableName))
+                    respStatus.Warnings.Add($"{Constants.TABLE_MISSING}\n\t{tableName}");
                 else
-                {
-                    if (mr_dataSet.Tables.Contains(tableName))
-                        retVal = mr_dataSet.Tables[tableName].Columns.Contains(columnName);
-                    else
-                        retVal = false;
-                }
+                    retVal = mr_dataSet.Tables[tableName].Columns.Contains(columnName);
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
         }
-        public bool AddColumns(string tableName, DataColumn[] dataColumns)
+        public bool AddColumns(string tableName, DataColumn[] dataColumns, out CJRespInfo respStatus)
         {
             bool hadException = false;
+            respStatus = new CJRespInfo();
 
             List<string> successList = new List<string>();
             foreach (DataColumn col in dataColumns)
             {
-                bool success = AddColumn(tableName, col, out hadException);
-                if (!success && hadException)
+                bool success = AddColumn(tableName, col, out respStatus);
+                //if not success, and has errors, then failed, lets break.
+                //Could be warnings, warnings occur if column already exists.
+                //We don't want to break for column exists.
+                if (!success && respStatus.HasErrors)
                     break;
                 else if (success)
                     successList.Add(col.ColumnName);
@@ -114,7 +120,7 @@ namespace Chizl.JsonTables.json
             if (hadException)
             {
                 foreach (string colName in successList)
-                    RemoveColumn(tableName, colName);
+                    RemoveColumn(tableName, colName, out respStatus);
             }
 
             return !hadException;
@@ -130,21 +136,19 @@ namespace Chizl.JsonTables.json
         /// <param name="dataColumn"></param>
         /// <param name="hadException"></param>
         /// <returns></returns>
-        public bool AddColumn(string tableName, DataColumn dataColumn, out bool hadException)
+        public bool AddColumn(string tableName, DataColumn dataColumn, out CJRespInfo respStatus)
         {
             bool retVal = false;
-            hadException = false;
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (mr_dataSet == null)
-                    LastError = new ArgumentException(Constants.TABLE_MISSING, nameof(tableName));
-                else if (dataColumn == null)
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(dataColumn));
+                if (string.IsNullOrWhiteSpace(tableName))
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(tableName)}");
+                if (dataColumn == null)
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(dataColumn)}");
                 else
                 {
-                    LastError = new Exception(null);
-
                     //auto create table if doesn't exist.
                     if (!mr_dataSet.Tables.Contains(tableName))
                     {
@@ -158,13 +162,12 @@ namespace Chizl.JsonTables.json
                         retVal = true;
                     }
                     else
-                        LastWarning = new WarningException($"Column '{dataColumn}' already exists in '{tableName}'.");
+                        respStatus.Warnings.Add($"Column '{dataColumn}' already exists in '{tableName}'.");
                 }
             }
             catch (Exception ex)
             {
-                hadException = true;
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
@@ -175,18 +178,14 @@ namespace Chizl.JsonTables.json
         /// <param name="columnName"></param>
         /// <param name="tableName"></param>
         /// <returns></returns>
-        public bool RemoveColumn(string tableName, string columnName)
+        public bool RemoveColumn(string tableName, string columnName, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (string.IsNullOrWhiteSpace(tableName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(tableName));
-                else if (string.IsNullOrWhiteSpace(columnName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(columnName));
-                else if (mr_dataSet.Tables.Contains(tableName)
-                    && mr_dataSet.Tables[tableName].Columns.Contains(columnName))
+                if (ColumnExists(tableName, columnName, out respStatus))
                 {
                     mr_dataSet.Tables[tableName].Columns.Remove(columnName);
                     retVal = true;
@@ -194,7 +193,7 @@ namespace Chizl.JsonTables.json
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
@@ -205,27 +204,21 @@ namespace Chizl.JsonTables.json
         /// <param name="columnName"></param>
         /// <param name="tableName"></param>
         /// <returns></returns>
-        public bool IsSecured(string tableName, string columnName)
+        public bool IsSecured(string tableName, string columnName, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (string.IsNullOrWhiteSpace(tableName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(tableName));
-                else if (string.IsNullOrWhiteSpace(columnName))
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(columnName));
-                else if (mr_dataSet.Tables.Contains(tableName))
-                {
-                    if (mr_dataSet.Tables[tableName].Columns.Contains(columnName))
-                        retVal = mr_dataSet.Tables[tableName].Columns[columnName].DataType == typeof(SecureString);
-                    else
-                        LastError = new ArgumentException(Constants.COLUMN_MISSING, nameof(columnName));
-                }
+                if (ColumnExists(tableName, columnName, out respStatus))
+                    retVal = mr_dataSet.Tables[tableName].Columns[columnName].DataType == typeof(SecureString);
+                else
+                    respStatus.Errors.Add($"{Constants.COLUMN_MISSING}\n\t{columnName}");
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
@@ -240,7 +233,7 @@ namespace Chizl.JsonTables.json
         /// <example>
         /// int userId = dataHelper.GetColumn<int>(dataRow, "UserID")
         /// </example>
-        public T GetColumn<T>(DataRow dr, string columnName, T defaultValue = default)
+        public static T GetColumn<T>(DataRow dr, string columnName, T defaultValue = default)
         {
             T retVal;
 
@@ -255,35 +248,37 @@ namespace Chizl.JsonTables.json
         #endregion
 
         #region Table Methods
-        public bool TableExists(string tableName)
+        public bool TableExists(string tableName, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (tableName == null)
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(tableName));
+                if (string.IsNullOrWhiteSpace(tableName))
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(tableName)}");
                 else
                     retVal = mr_dataSet.Tables.Contains(tableName);
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
         }
-        public bool GetTable(string tableName, out DataTable dataTable)
+        public bool GetTable(string tableName, out DataTable dataTable, out CJRespInfo respStatus)
         {
             bool retVal = false;
             dataTable = new DataTable(tableName);
+            respStatus = new CJRespInfo();
 
             try
             {
-                if (tableName == null)
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(tableName));
+                if (string.IsNullOrWhiteSpace(tableName))
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(tableName)}");
                 else if (!mr_dataSet.Tables.Contains(tableName))
-                    LastError = new ArgumentException(Constants.TABLE_MISSING, nameof(tableName));
+                    respStatus.Warnings.Add($"{Constants.TABLE_MISSING}\n\t{nameof(tableName)}");
                 else
                 {
                     dataTable = mr_dataSet.Tables[tableName];
@@ -292,44 +287,49 @@ namespace Chizl.JsonTables.json
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
         }
-        public bool AddTable(DataTable dataTable, bool updateIfExist = false)
+        public bool AddTable(DataTable dataTable, out CJRespInfo respStatus, bool replaceIfExists = false)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             try
             {
                 if (dataTable == null)
-                    LastError = new ArgumentException(Constants.ARGS_MISSING, nameof(dataTable));
+                    respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(dataTable)}");
                 else
                 {
                     if (mr_dataSet.Tables.Contains(dataTable.TableName))
                     {
-                        if (updateIfExist)
+                        if (replaceIfExists)
                             mr_dataSet.Tables.Remove(dataTable.TableName);
                         else
-                            throw new Exception(Constants.TABLE_MISSING);
+                            respStatus.Warnings.Add($"{Constants.TABLE_EXISTS}\n\t{dataTable.TableName}");
                     }
-
-                    mr_dataSet.Tables.Add(dataTable);
-                    retVal = true;
+                    
+                    if(!respStatus.HasErrorOrWarnings)
+                    {
+                        mr_dataSet.Tables.Add(dataTable);
+                        retVal = true;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
         }
-        public bool UpdateTable(DataTable dataTable) => AddTable(dataTable, true);
-        public bool RemoveTable(string tableName)
+        public bool UpdateTable(DataTable dataTable, out CJRespInfo respStatus) => AddTable(dataTable, out respStatus, true);
+        public bool RemoveTable(string tableName, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             try
             {
@@ -343,7 +343,7 @@ namespace Chizl.JsonTables.json
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
             }
 
             return retVal;
@@ -351,13 +351,13 @@ namespace Chizl.JsonTables.json
         #endregion
 
         #region Record Methods
-        public bool CreateRecord(string tableName, out DataRow dataRow)
+        public bool CreateRecord(string tableName, out DataRow dataRow, out CJRespInfo respStatus)
         {
             bool retVal = false;
 
-            if (!TableExists(tableName))
+            if (!TableExists(tableName, out respStatus))
             {
-                LastError = new ArgumentException(Constants.TABLE_MISSING, nameof(tableName));
+                respStatus.Errors.Add($"{Constants.TABLE_MISSING}\n\t{nameof(tableName)}");
                 dataRow = new DataTable(Guid.NewGuid().ToString()).NewRow();
             }
             else
@@ -368,39 +368,44 @@ namespace Chizl.JsonTables.json
 
             return retVal;
         }
-        public bool SaveRecord(string tableName, DataRow dataRow)
+        public bool SaveRecord(string tableName, DataRow dataRow, out CJRespInfo respStatus)
         {
-            return SaveRecord(tableName, dataRow, string.Empty, out int _);
+            return SaveRecord(tableName, dataRow, string.Empty, out int _, out respStatus);
         }
-        public bool SaveRecord(string tableName, DataRow dataRow, out int affectCount)
+        public bool SaveRecord(string tableName, DataRow dataRow, out int affectCount, out CJRespInfo respStatus)
         {
-            return SaveRecord(tableName, dataRow, string.Empty, out affectCount);
+            return SaveRecord(tableName, dataRow, string.Empty, out affectCount, out respStatus);
         }
-        public bool SaveRecord(string tableName, DataRow dataRow, string where, out int affectCount)
+        public bool SaveRecord(string tableName, DataRow dataRow, string where, out int affectCount, out CJRespInfo respStatus)
         {
             bool retVal = false;
             bool addRecord = false;
             affectCount = 0;
+            respStatus = new CJRespInfo();
 
             where = Utils.CleanQuery(where);
+            DataRow[] allEffectedData;
 
-            if (!TableExists(tableName))
-                LastError = new ArgumentException(Constants.TABLE_MISSING, nameof(tableName));
+            if (!TableExists(tableName, out respStatus))
+                respStatus.Errors.Add($"{Constants.TABLE_MISSING}\n\t{nameof(tableName)}");
             else
             {
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(where))
                     {
-                        if (GetRecords(tableName, where, string.Empty, out DataRow[] retData))
+                        if (GetRecords(tableName, where, string.Empty, out allEffectedData, out respStatus))
                         {
-                            affectCount = retData.Length;
-                            foreach (DataRow dr in retData)
+                            affectCount = allEffectedData.Length;
+                            foreach (DataRow dr in allEffectedData)
                             {
-                                foreach (DataColumn dc in mr_dataSet.Tables[tableName].Columns)
+                                foreach (DataColumn dc in dataRow.Table.Columns)
                                 {
                                     dr[dc.ColumnName] = dataRow[dc.ColumnName];
                                 }
+
+                                if (dr.Table.Columns.Contains("ModifiedDate"))
+                                    dr["ModifiedDate"] = DateTime.UtcNow;
                             }
                         }
                         else
@@ -410,25 +415,33 @@ namespace Chizl.JsonTables.json
                         addRecord = true;
 
                     if (addRecord)
-                        mr_dataSet.Tables[tableName].Rows.Add(dataRow);
+                    {
+                        if (dataRow.Table.Columns.Contains("CreatedDate"))
+                            dataRow["CreatedDate"] = DateTime.UtcNow;
+                        if (dataRow.Table.Columns.Contains("ModifiedDate"))
+                            dataRow["ModifiedDate"] = DateTime.UtcNow;
 
-                    retVal = Flush();
+                        mr_dataSet.Tables[tableName].Rows.Add(dataRow);
+                    }
+
+                    retVal = Flush(out respStatus);
                 }
                 catch (Exception ex)
                 {
-                    LastError = ex;
+                    respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
                 }
             }
 
             return retVal;
         }
-        public bool GetRecords(string tableName, string where, string orderBy, out DataRow[] dataRows)
+        public bool GetRecords(string tableName, string where, string orderBy, out DataRow[] dataRows, out CJRespInfo respStatus)
         {
             bool retVal = false;
             dataRows = Array.Empty<DataRow>();
+            respStatus = new CJRespInfo();
 
-            if (!TableExists(tableName))
-                LastError = new Exception($"Table '{tableName}' doesn't exist.");
+            if (!TableExists(tableName, out respStatus))
+                respStatus.Errors.Add($"{Constants.TABLE_MISSING}\n\t{nameof(tableName)}");
             else
             {
                 try
@@ -441,19 +454,20 @@ namespace Chizl.JsonTables.json
                 }
                 catch (Exception ex)
                 {
-                    LastError = ex;
+                    respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
                 }
             }
 
             return retVal;
         }
-        public bool DeleteRecords(string tableName, string where, out int affectCount)
+        public bool DeleteRecords(string tableName, string where, out int affectCount, out CJRespInfo respStatus)
         {
             bool retVal = false;
             affectCount = 0;
+            respStatus = new CJRespInfo();
 
-            if (!TableExists(tableName))
-                LastError = new Exception($"Table '{tableName}' doesn't exist.");
+            if (!TableExists(tableName, out respStatus))
+                respStatus.Errors.Add($"{Constants.TABLE_MISSING}\n\t{nameof(tableName)}");
             else
             {
                 try
@@ -466,14 +480,14 @@ namespace Chizl.JsonTables.json
                         mr_dataSet.Tables[tableName].Rows.Remove(dr);
 
                     if (drs.Length > 0)
-                        retVal = Flush();
+                        retVal = Flush(out respStatus);
                     else
                         retVal = true;
                 }
                 catch (Exception ex)
                 {
                     affectCount = 0;
-                    LastError = ex;
+                    respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
                 }
             }
 
@@ -512,20 +526,19 @@ namespace Chizl.JsonTables.json
         /// Just in case, Flush() isn't noticed, SaveToDisk calls Flush()
         /// </summary>
         /// <returns></returns>
-        public bool SaveToDisk()
+        public bool SaveToDisk(out CJRespInfo respStatus)
         {
-            return Flush();
+            return Flush(out respStatus);
         }
         /// <summary>
         /// Saves DataSet, all Tables, and all Records to disk along with table schema.
         /// </summary>
         /// <returns></returns>
-        public bool Flush()
+        public bool Flush(out CJRespInfo respStatus)
         {
-            if (mr_jsonConverter.FromDataSet(mr_dataSet, out JsonDataSet jds))
-                return JsonFile.SaveToFile(jds);
+            if (mr_jsonConverter.FromDataSet(mr_dataSet, out JsonDataSet jds, out respStatus))
+                return JsonFile.SaveToFile(jds, out respStatus);
 
-            LastError = mr_jsonConverter.LastError;
             return false;
         }
         #endregion

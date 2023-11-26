@@ -4,6 +4,7 @@ using System.Data;
 using System.Net;
 using System.Security;
 using System.Diagnostics.CodeAnalysis;
+using System.ComponentModel.Design;
 
 internal class Program
 {
@@ -12,6 +13,7 @@ internal class Program
         ID,
         Name,
         CreatedDate,
+        ModifiedDate,
         Password
     }
     
@@ -27,7 +29,7 @@ internal class Program
     //    Console.Write($"{c}, ");
     static readonly byte[] byteSec = new byte[] { 89, 85, 55, 105, 99, 75, 72, 107, 86, 112, 53, 97, 65, 82, 113, 75 };
     static readonly SecureString piSecureString = new();
-    static Guid testID = Guid.NewGuid();
+    static readonly Guid testID = Guid.NewGuid();
         
     [AllowNull]
     static JsonHandler m_JsonProcessing;
@@ -56,7 +58,12 @@ internal class Program
         CreateRecords(tableName1, false, Guid.Empty);       //create a second record (1a)
         CreateRecords(tableName2, true, Guid.Empty);        //create a new record (only 1 for table 2)
 
-        bool isSecured = m_JsonProcessing.IsSecured(tableName1, ColNames.Password.ToString());
+        bool isSecured = m_JsonProcessing.IsSecured(tableName1, ColNames.Password.ToString(), out CJRespInfo respStatus);
+        if(respStatus.HasErrors)
+        {
+            PressAnyKey(respStatus.LastErrorMessage);
+            return;
+        }
 
         Guid guid1 = ReadRecords(tableName1, true);         //read all records, get first guid back for future select
         GetRecord(tableName1, guid1, true);                 //pull one record by id (1)
@@ -90,54 +97,86 @@ internal class Program
     {
         Heading($"Create Table: '{tableName}'", clearConsole);
 
-        bool success = false, hadException = false;
+        bool success = false;
         string msg;
 
         //validate table exists
-        if (!m_JsonProcessing.TableExists(tableName))
+        if (!m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
             // Table Defs 
             List<DataColumn> allCols = new() {
                 new($"{ColNames.ID}", typeof(Guid)) { Unique=true },
                 new($"{ColNames.Name}", typeof(string)),
-                new($"{ColNames.CreatedDate}", typeof(DateTime)),
+                new($"{ColNames.CreatedDate}", typeof(DateTime)),   //internally auto-add, on insert of new record.
+                new($"{ColNames.ModifiedDate}", typeof(DateTime)),  //internally auto-update with UTC Date/Time based on Name of colnum, "ModifiedDate"
                 new($"{ColNames.Password}", typeof(SecureString))   //secured data.
             };
 
+            respStatus = new CJRespInfo();
             if (tableName.Equals(tableName1))
             {
-                // Create columns by passing the whole array.
-                if (m_JsonProcessing.AddColumns(tableName, allCols.ToArray()))
+                //Create columns by passing the whole array.  Good thing to know, by using   AddColumns(),
+                //If an error occurs, it will remove successfully added columns.  If you use AddColumn(), you must remove anything prior on your own.
+                if (m_JsonProcessing.AddColumns(tableName, allCols.ToArray(), out respStatus))
                 {
-                    if (!m_JsonProcessing.Flush())
-                        Console.WriteLine($"Exception occured flusing table '{tableName} after adding all columns':\n\t{m_JsonProcessing.LastError.Message}");
-                    else
+                    if (m_JsonProcessing.Flush(out respStatus))
                         Console.WriteLine($"Success, Table '{tableName}' created with ALL columns at once.\nExpecting the next to have warnings on all columns since they already exist.\n---------------------------");
+                    else
+                    {
+                        if (respStatus.HasErrors)
+                            Console.WriteLine($"Exception occured during Flush() for ALL columns to table '{tableName}':\n\t{respStatus.AllErrorMessages}");
+
+                        //could have errors and warnings, which is why this isn't an "else if"
+                        if (respStatus.HasWarnings)
+                            Console.WriteLine($"Warnings occured during Flush() for ALL columns to table '{tableName}':\n\t{respStatus.AllWarningMessages}");
+                    }
                 }
                 else
-                    Console.WriteLine($"Exception occured adding ALL columns to table '{tableName}':\n\t{m_JsonProcessing.LastError.Message}");
+                {
+                    if (respStatus.HasErrors)
+                        Console.WriteLine($"Exception occured adding ALL columns to table '{tableName}':\n\t{respStatus.AllErrorMessages}");
+
+                    //could have errors and warnings, which is why this isn't an "else if"
+                    if (respStatus.HasWarnings)
+                        Console.WriteLine($"Exception occured adding ALL columns to table '{tableName}':\n\t{respStatus.AllWarningMessages}");
+                }
             }
 
-            // Create columns 1 by 1
-            foreach (DataColumn col in allCols)
+            //accept warnings, but not errors
+            if (respStatus.Status != CJ_RESP_STATUS.Error)
             {
-                success = m_JsonProcessing.AddColumn(tableName, col, out hadException);
-                //looking for 'hadException' because if column already exists, it's
-                //not an exception, but not successfully added.
-                if (hadException)   
-                    Console.WriteLine($"Exception occured adding columns table:\n\t{m_JsonProcessing.LastError.Message}");
-                else if(!success && !hadException)
-                    Console.WriteLine(m_JsonProcessing.LastWarning?.Message);  //display why column wasn't added, if message exists.
+                // Create columns 1 by 1
+                foreach (DataColumn col in allCols)
+                {
+                    success = m_JsonProcessing.AddColumn(tableName, col, out respStatus);
+                    //looking for 'hadException' because if column already exists, it's
+                    //not an exception, but not successfully added.
+                    if (success)
+                        Console.WriteLine($"Successfully added Column '{col.ColumnName}' to table '{tableName}'.");
+                    else
+                    {
+                        if (respStatus.HasErrors)
+                        {
+                            Console.WriteLine($"Exception occured adding columns table:\n\t{respStatus.AllErrorMessages}");
+                            //failed to add a single column, time to exit.
+                            break;
+                        }
+                        
+                        //could have errors and warnings, which is why this isn't an "else if"
+                        if (respStatus.HasWarnings)
+                            Console.WriteLine(respStatus.AllWarningMessages);  //display why column wasn't added, if message exists.
+                    }
+                }
             }
 
             // Save to Disk 
-            if (success) success = m_JsonProcessing.Flush();
+            if (success) success = m_JsonProcessing.Flush(out respStatus);
 
             // Display success of failure 
             msg = success ? 
                 $"Success, Table '{tableName}' created." :
-                    hadException ?
-                        $"Exception Occured:\n\t{m_JsonProcessing.LastError.Message}" :
+                    respStatus.HasErrors ?
+                        $"See above errors." :
                         $"See above warnings.";
         }
         else
@@ -150,14 +189,31 @@ internal class Program
         Heading($"Drop Table Example: '{tableName}'", clearConsole);
         string msg;
 
-        if (m_JsonProcessing.TableExists(tableName))
+        if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
-            if (!m_JsonProcessing.RemoveTable(tableName))
-                msg = $"Exception occured while removing table:\n\t{m_JsonProcessing.LastError.Message}";
-            else if (!m_JsonProcessing.Flush())
-                msg = $"Exception occured while saving after removing table:\n\t{m_JsonProcessing.LastError.Message}";
-            else
+            if (m_JsonProcessing.RemoveTable(tableName, out respStatus))
+            {
                 msg = $"Success, Table '{tableName}' removed.";
+
+                if (!m_JsonProcessing.Flush(out respStatus))
+                {
+                    if (respStatus.HasErrors)
+                        msg = $"Exception:\n\t{respStatus.AllErrorMessages}";
+                    else if (respStatus.HasWarnings)
+                        msg = $"Warnings:\n\t{respStatus.AllWarningMessages}";
+                    else
+                        msg = "DeleteTable() #1: Unknown issue, this shouldn't ever occur";
+                }
+            }
+            else
+            {
+                if (respStatus.HasErrors)
+                    msg = respStatus.AllErrorMessages;
+                else if (respStatus.HasWarnings)
+                    msg = respStatus.AllErrorMessages;
+                else
+                    msg = "DeleteTable() #2: Unknown issue, this shouldn't ever occur";
+            }
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";
@@ -176,24 +232,29 @@ internal class Program
             Console.WriteLine($"Expecting the next record create to FAIL, because the record id '{id}' already exists.");
 
         //validate table exists
-        if (m_JsonProcessing.TableExists(tableName))
+        if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
             //create a new record
-            if(m_JsonProcessing.CreateRecord(tableName, out DataRow dr))
+            if(m_JsonProcessing.CreateRecord(tableName, out DataRow dr, out respStatus))
             {
                 id = id == Guid.Empty ? Guid.NewGuid() : id;
                 dr[$"{ColNames.ID}"] = id;
                 dr[$"{ColNames.Name}"] = "Chizl Tester";
-                dr[$"{ColNames.CreatedDate}"] = DateTime.UtcNow;
                 dr[$"{ColNames.Password}"] = JsonHandler.SecuredString(securedFieldValue1);
 
-                if (m_JsonProcessing.SaveRecord(tableName, dr))
+                //Colums named: CreatedDate or ModifiedDate are auto filled, no requirement to set them, yourself.
+
+                if (m_JsonProcessing.SaveRecord(tableName, dr, out respStatus))
                     msg = $"Success, Table '{tableName}' saved record id: {id}.";
+                else if(respStatus.HasErrors)
+                    msg = $"Exception occured while saving record:\n\t{respStatus.AllErrorMessages}";
                 else
-                    msg = $"Exception occured while saving record:\n\t{m_JsonProcessing.LastError.Message}";
+                    msg = $"Warnings occured while saving record:\n\t{respStatus.AllWarningMessages}";
             }
+            else if(respStatus.HasErrors)
+                msg = $"Exception occured while creating record from table:\n\t{respStatus.AllErrorMessages}";
             else
-                msg = $"Exception occured while creating record from table:\n\t{m_JsonProcessing.LastError.Message}";
+                msg = $"Warnings occured while creating record from table:\n\t{respStatus.AllWarningMessages}";
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";
@@ -208,7 +269,7 @@ internal class Program
 
         //validate table exists and pull all data as DataTable
         ConsoleColor orgColor = Console.ForegroundColor;
-        if (m_JsonProcessing.GetTable(tableName, out DataTable dt))
+        if (m_JsonProcessing.GetTable(tableName, out DataTable dt, out CJRespInfo respStatus))
         {
             foreach (DataRow dr in dt.Rows)
             {
@@ -218,40 +279,56 @@ internal class Program
                 var name = dr[$"{ColNames.Name}"];
                 //is a DateTime
                 var createdDate = dr[$"{ColNames.CreatedDate}"];
+                //is a DateTime
+                var modifiedDate = dr[$"{ColNames.ModifiedDate}"];
                 //is a SecureString
-                var secPass = m_JsonProcessing.GetColumn<SecureString>(dr, $"{ColNames.Password}");
+                var secPass = JsonHandler.GetColumn<SecureString>(dr, $"{ColNames.Password}");
                 //version 1 of pulling SecureString as clear value from DataRow.
                 //NOTE: Less secure, since SecureString is converted to string value in object and returned.
-                var unSecPass1 = m_JsonProcessing.GetColumn<string>(dr, $"{ColNames.Password}");
+                var unSecPass1 = JsonHandler.GetColumn<string>(dr, $"{ColNames.Password}");
                 //version 2 of getting a clear value from the local SecureString var
                 //NOTE: Most secure, since it's returning SecureString as a NetworkCredentials
                 //object and "Password" is a property of NetworkCredentials.
                 var unSecPass2 = JsonHandler.SecuredString(secPass).Password;
 
-                bool valChanged = unSecPass1.Equals(securedFieldValue2);
-                string wasAlert = valChanged ? $" <- Value Was: {securedFieldValue1}{Environment.NewLine}" : $"{Environment.NewLine}";
+                bool passChanged = unSecPass1.Equals(securedFieldValue2);
+                string passWasAlert = passChanged ? $" <- Value Was: {securedFieldValue1}{Environment.NewLine}" : $"{Environment.NewLine}";
+                string cd = ((DateTime)createdDate).ToString("yyMMddHHmmss");
+                string md = ((DateTime)modifiedDate).ToString("yyMMddHHmmss");
+
+                bool dateChanged = !cd.Equals(md);
+                string dateWasAlert = dateChanged ? $" <- Value Was: {createdDate}{Environment.NewLine}" : $"{Environment.NewLine}";
 
                 Console.WriteLine("ID:\t\t\t{0}", id);
                 Console.WriteLine("Name:\t\t\t{0}", name);
                 Console.WriteLine("CreateDate:\t\t{0}", createdDate);
-                Console.WriteLine("Secured Password:\t{0}", secPass);
-                Console.Write("Unsecured Password v1:\t{0}", unSecPass1);
-                if (valChanged)
+                Console.Write("ModifiedDate:\t\t{0}", modifiedDate);
+                if (dateChanged)
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
 
-                Console.Write("{0}", wasAlert);
+                Console.Write("{0}", dateWasAlert);
 
-                if (valChanged)
+                if (dateChanged)
+                    Console.ForegroundColor = orgColor;
+
+                Console.WriteLine("Secured Password:\t{0}", secPass);
+                Console.Write("Unsecured Password v1:\t{0}", unSecPass1);
+                if (passChanged)
+                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+
+                Console.Write("{0}", passWasAlert);
+
+                if (passChanged)
                     Console.ForegroundColor = orgColor;
 
                 Console.Write("Unsecured Password v2:\t{0}", unSecPass2);
 
-                if (valChanged)
+                if (passChanged)
                     Console.ForegroundColor = ConsoleColor.DarkYellow;
 
-                Console.Write("{0}", wasAlert);
+                Console.Write("{0}", passWasAlert);
 
-                if (valChanged)
+                if (passChanged)
                     Console.ForegroundColor = orgColor;
 
                 Console.WriteLine(new string('-', 10));
@@ -267,8 +344,12 @@ internal class Program
                 msg = "Successfully displayed records.";
         }
         else
-            msg = $"Response while getting table: '{tableName}'\n\t{m_JsonProcessing.LastError.Message}.";
-
+        {
+            if(respStatus.HasErrors)
+                msg = $"Response while getting table: '{tableName}'\n\t{respStatus.AllErrorMessages}.";
+            else 
+                msg = $"Response while getting table: '{tableName}'\n\t{respStatus.AllWarningMessages}.";
+        }
 
         PressAnyKey(msg);
 
@@ -280,17 +361,17 @@ internal class Program
         string msg;
 
         //validate table exists
-        if (m_JsonProcessing.TableExists(tableName))
+        if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
-            if (m_JsonProcessing.GetRecords(tableName, $"ID='{guid}'", string.Empty, out DataRow[] data))
+            if (m_JsonProcessing.GetRecords(tableName, $"ID='{guid}'", string.Empty, out DataRow[] data, out respStatus))
             {
                 foreach (DataRow dr in data)
                 {
                     var id = dr[$"{ColNames.ID}"];
                     var name = dr[$"{ColNames.Name}"];
                     var createdDate = dr[$"{ColNames.CreatedDate}"];
-                    var secPass = m_JsonProcessing.GetColumn<SecureString>(dr, $"{ColNames.Password}");
-                    var unSecPass1 = m_JsonProcessing.GetColumn<string>(dr, $"{ColNames.Password}");
+                    var secPass = JsonHandler.GetColumn<SecureString>(dr, $"{ColNames.Password}");
+                    var unSecPass1 = JsonHandler.GetColumn<string>(dr, $"{ColNames.Password}");
                     var unSecPass2 = JsonHandler.SecuredString(secPass).Password;
 
                     Console.WriteLine("ID:\t\t\t{0}", id);
@@ -302,16 +383,18 @@ internal class Program
                     Console.WriteLine(new string('-', 10));
                 }
 
-                if(data.Length == 0)
+                if (data.Length == 0)
                     msg = "Successfully searched, but no records were found.";
                 else
                     msg = "Successfully displayed records.";
             }
-            else if(m_JsonProcessing.LastError != null)
-                msg = $"Exception occured while searching for record.\n\t{m_JsonProcessing.LastError.Message}";
-            else
-                msg = "Unable to get record for unknown reasons";
-
+            else 
+            {
+                if(respStatus.HasErrors)
+                    msg = $"Exception occured while searching for record.\n\t{respStatus.AllErrorMessages}";
+                else
+                    msg = $"Warnings occured while searching for record.\n\t{respStatus.AllWarningMessages}";
+            }
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";
@@ -324,10 +407,10 @@ internal class Program
         string msg;
 
         //validate table exists
-        if (m_JsonProcessing.TableExists(tableName))
+        if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
             //get record
-            if (m_JsonProcessing.GetRecords(tableName, $"ID='{guid}'", string.Empty, out DataRow[] data))
+            if (m_JsonProcessing.GetRecords(tableName, $"ID='{guid}'", string.Empty, out DataRow[] data, out respStatus))
             {
                 //check length, so we can have a custom message during else.
                 if (data.Length.Equals(0))
@@ -347,12 +430,14 @@ internal class Program
 
                         //To save more than 1 at a time, use: m_JsonProcessing.SaveRecords(tableName: ..., dataRows: DataRows[], where: ...)
                         //Saves each record by themselves.
-                        if (m_JsonProcessing.SaveRecord(tableName: tableName, dataRow: dr, where: $"ID='{guid}'", out int affectedCount) && affectedCount > 0)
+                        if (m_JsonProcessing.SaveRecord(tableName: tableName, dataRow: dr, where: $"ID='{guid}'", out int affectedCount, out respStatus) && affectedCount > 0)
                             msg = "Successfully updated record.";
                         else if (affectedCount.Equals(0))
                             msg = $"Table '{tableName}' didn't save any records matching your criteria.";
-                        else
-                            msg = $"Exception occured while updating the record.\n\t{m_JsonProcessing.LastError.Message}";
+                        else if(respStatus.HasErrors)
+                            msg = $"Exception occured while updating the record.\n\t{respStatus.AllErrorMessages}";
+                        else if(respStatus.HasWarnings)
+                            msg = $"Warnings occured while updating the record.\n\t{respStatus.AllWarningMessages}";
                     }
                 }
                 catch(Exception e)
@@ -360,10 +445,10 @@ internal class Program
                     msg = $"Unexpected Exception occured while saving records.\n\t{e.Message}";
                 }
             }
-            else if (m_JsonProcessing.LastError != null)
-                msg = $"Exception occured while searching for record.\n\t{m_JsonProcessing.LastError.Message}";
+            else if (respStatus.HasErrors)
+                msg = $"Exception occured while searching for record.\n\t{respStatus.AllErrorMessages}";
             else
-                msg = "Unable to get record for unknown reasons";
+                msg = $"Warnings occured while searching for record.\n\t{respStatus.AllErrorMessages}";
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";
@@ -376,14 +461,16 @@ internal class Program
         string msg;
 
         //validate table exists
-        if (m_JsonProcessing.TableExists(tableName))
+        if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
-            if (m_JsonProcessing.DeleteRecords(tableName, $"ID='{guid}'", out int affectedCount) && affectedCount > 0)
+            if (m_JsonProcessing.DeleteRecords(tableName, $"ID='{guid}'", out int affectedCount, out respStatus) && affectedCount > 0)
                 msg = "Successfully deleted record.";
+            else if (respStatus.HasErrors)
+                msg = $"Exception occured while updating the record.\n\t{respStatus.AllErrorMessages}";
             else if (affectedCount.Equals(0))
                 msg = $"Table '{tableName}' didn't find any records matching ID='{guid}' for deletion.";
             else
-                msg = $"Failed to delete record\n\t{m_JsonProcessing.LastError.Message}";
+                msg = $"Warnings occured while updating the record.\n\t{respStatus.AllWarningMessages}";
         }
         else
             msg = $"Table '{tableName}' doesn't exists.";

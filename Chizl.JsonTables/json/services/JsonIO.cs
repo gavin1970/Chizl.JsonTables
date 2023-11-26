@@ -6,31 +6,26 @@ namespace Chizl.JsonTables.json
 {
     internal class JsonIO
     {
-        private string m_FileName;
+        private readonly string m_FileName;
         private static readonly object m_Locker = new object();
 
-        internal Exception Error { get; set; } = new Exception(null);
-
-        internal bool FileExists { get { return m_FileName == null ? false : File.Exists(m_FileName); } }
+        internal bool FileExists { get { return m_FileName != null && File.Exists(m_FileName); } }
 
         internal JsonIO(string fileName) => m_FileName = string.IsNullOrWhiteSpace(fileName)
                 ? throw new ArgumentException(Constants.ARGS_MISSING, nameof(fileName))
                 : fileName;
 
-        private void ClearError() => Error = new Exception(null);
-
-        internal bool SaveToFile(JsonDataSet jsonDataSet)
+        internal bool SaveToFile(JsonDataSet jsonDataSet, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             lock (m_Locker)
             {
-                ClearError();
-
                 try
                 {
                     if (jsonDataSet == null)
-                        Error = new ArgumentException(Constants.ARGS_MISSING, nameof(jsonDataSet));
+                        respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(jsonDataSet)}");
                     else
                     {
                         string json = JsonConvert.SerializeObject(jsonDataSet, Formatting.Indented);
@@ -40,53 +35,58 @@ namespace Chizl.JsonTables.json
                 }
                 catch (Exception ex)
                 {
-                    Error = ex;
+                    respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
                 }
             }
 
             return retVal;
         }
-        internal bool LoadFile(out JsonDataSet jsonDataSet)
+        internal bool LoadFile(out JsonDataSet jsonDataSet, out CJRespInfo respStatus)
         {
-            return LoadFile(string.Empty, out jsonDataSet);
+            return LoadFile(string.Empty, out jsonDataSet, out respStatus);
         }
-        internal bool LoadFile(string dataSetName, out JsonDataSet jsonDataSet)
+        internal bool LoadFile(string dataSetName, out JsonDataSet jsonDataSet, out CJRespInfo respStatus)
         {
             bool retVal = false;
+            respStatus = new CJRespInfo();
 
             if (string.IsNullOrWhiteSpace(dataSetName))
                 dataSetName = Constants.DEFAULT_LOADING;
 
             lock ((m_Locker))
             {
-                ClearError();
                 jsonDataSet = new JsonDataSet(dataSetName);
 
                 try
                 {
                     if (string.IsNullOrWhiteSpace(m_FileName))
-                        Error = new ArgumentException(Constants.ARGS_MISSING, nameof(m_FileName));
+                        respStatus.Errors.Add($"{Constants.ARGS_MISSING}\n\t{nameof(m_FileName)}");
                     else if (!FileExists)
-                        Error = new FileNotFoundException(Constants.FILE_MISSING, nameof(m_FileName));
+                        respStatus.Warnings.Add($"{Constants.FILE_MISSING}\n\t{m_FileName}");
                     else
                     {
                         string json = File.ReadAllText(m_FileName);
                         if (!string.IsNullOrWhiteSpace(json))
                         {
-                            jsonDataSet = (JsonDataSet)JsonConvert.DeserializeObject(json, typeof(JsonDataSet));
-                            if (jsonDataSet != null)
+                            JsonDataSet allDataSetData = (JsonDataSet)JsonConvert.DeserializeObject(json, typeof(JsonDataSet));
+                            if (allDataSetData == null)
+                                respStatus.Errors.Add($"{Constants.JSON_FORMAT_EXCEPTION}\n\t{m_FileName}"); 
+                            else if (allDataSetData.DataSetName.Equals(dataSetName))
+                            {
+                                jsonDataSet = allDataSetData;
                                 retVal = true;
+                            }
                             else
-                                Error = new FormatException(nameof(json));
+                                respStatus.Errors.Add($"{Constants.DATASET_MISSING}\n\t{dataSetName}");
                         }
                         else
-                            Error = new FileLoadException(Constants.DATA_MISSING, nameof(m_FileName));
+                            respStatus.Warnings.Add($"{Constants.DATA_MISSING}\n\t{m_FileName}");
                     }
                 }
                 catch (Exception ex)
                 {
                     //catch the unexpected
-                    Error = ex;
+                    respStatus.Errors.Add($"Exception:\n\t{ex.Message}");
                 }
             }
 

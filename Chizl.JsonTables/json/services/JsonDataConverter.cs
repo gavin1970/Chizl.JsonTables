@@ -65,12 +65,11 @@ namespace Chizl.JsonTables.json
         #endregion
 
         #region Internal Methods
-        internal bool DT2JT(DataTable dt, out JsonDataTable jdt)
+        internal bool DT2JT(DataTable dt, out JsonDataTable jdt, out CJRespInfo respStatus)
         {
             bool retVal = false;
             jdt = new JsonDataTable(dt.TableName);
-
-            //JsonSerializerSettings config = new () { ReferenceLoopHandling = ReferenceLoopHandling.Serialize };
+            respStatus = new CJRespInfo();
 
             try
             {
@@ -78,25 +77,24 @@ namespace Chizl.JsonTables.json
                 foreach(DataColumn col in dt.Columns)
                     jdt.Schema.Add(new JsonDataColumn(col.ColumnName, col.DataType.FullName, col.Unique));
 
-                //var colSchema = dt.Columns.Cast<DataColumn>().Select(dc => new { dc.ColumnName, DataType = dc.DataType.FullName });
-                //jdt.TableSchema = JsonConvert.SerializeObject(colSchema);
                 jdt.Table = RowData(dt);
 
                 retVal = true;
             } 
             catch(Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"While adding columns to schema\n{ex.Message}");
             }
 
             return retVal;
         }
-        internal bool JT2DT(JsonDataTable jdt, out DataTable dt)
+        internal bool JT2DT(JsonDataTable jdt, out DataTable dt, out CJRespInfo respStatus)
         {
             bool retVal = false;
             Utils utils = new Utils();
 
             dt = new DataTable(jdt.TableName);
+            respStatus = new CJRespInfo();
 
             if (jdt == null)
                 throw new ArgumentException(Constants.ARGS_MISSING, nameof(jdt));
@@ -136,7 +134,7 @@ namespace Chizl.JsonTables.json
                                         //pull data
                                         var text = dr[dc.ColumnName].ToString();
                                         //check to ensure it's branded as Base64 AES
-                                        if (text.IndexOf(Constants.SEC_STR_WRAPPER)==-1)
+                                        if (text.Contains(Constants.SEC_STR_WRAPPER))
                                             LastWarning = new WarningException($"Column '{dc.ColumnName}' has an invalid secure string: '{text}'.\n'{Constants.SEC_STR_WRAPPER}' was expected at the start of all SecureStrings. Data could possible be invalid.");
                                         else
                                             text = text.Replace(Constants.SEC_STR_WRAPPER, ""); //remove brand
@@ -182,7 +180,7 @@ namespace Chizl.JsonTables.json
                 } 
                 catch(Exception ex)
                 {
-                    LastError = ex;
+                    respStatus.Errors.Add($"While converting Json DataTables to DataTables.\n{ex.Message}");
                 }
             }
 
@@ -194,10 +192,11 @@ namespace Chizl.JsonTables.json
         /// <param name="ds"></param>
         /// <param name="jds"></param>
         /// <returns></returns>
-        internal bool FromDataSet(DataSet ds, out JsonDataSet jds)
+        internal bool FromDataSet(DataSet ds, out JsonDataSet jds, out CJRespInfo respStatus)
         {
             //set DataSet name
             jds = new JsonDataSet(ds.DataSetName);
+            respStatus = new CJRespInfo();
 
             try
             {
@@ -205,13 +204,13 @@ namespace Chizl.JsonTables.json
                 foreach (DataTable dt in ds.Tables)
                 {
                     //set table schema and convert data to strings
-                    if (DT2JT(dt, out JsonDataTable jdt))
+                    if (DT2JT(dt, out JsonDataTable jdt, out respStatus))
                         jds.DataTables.Add(jdt);
                 }
             } 
             catch(Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"While converting DataSet to Json.\n{ex.Message}");
             }
 
             return LastError == null;
@@ -222,9 +221,10 @@ namespace Chizl.JsonTables.json
         /// <param name="jds"></param>
         /// <param name="ds"></param>
         /// <returns></returns>
-        internal bool ToDataSet(JsonDataSet jds, out DataSet ds)
+        internal bool ToDataSet(JsonDataSet jds, out DataSet ds, out CJRespInfo respStatus)
         {
             ds = new DataSet();
+            respStatus = new CJRespInfo();
 
             try
             {
@@ -238,16 +238,16 @@ namespace Chizl.JsonTables.json
                 foreach (JsonDataTable jdt in jds.DataTables)
                 {
                     //convert Json table to DataTable
-                    if (JT2DT(jdt, out DataTable dt))
+                    if (JT2DT(jdt, out DataTable dt, out respStatus))
                         ds.Tables.Add(dt);
                 }
             }
             catch (Exception ex)
             {
-                LastError = ex;
+                respStatus.Errors.Add($"While converting Json to DataSet.\n{ex.Message}");
             }
 
-            return LastError == null;
+            return !respStatus.HasErrors;
         }
         #endregion
     }
