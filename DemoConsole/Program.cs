@@ -1,10 +1,8 @@
-﻿using Chizl.JsonTables.json;
-using Chizl.Crypto.aes;
-using System.Data;
+﻿using System.Data;
 using System.Net;
 using System.Security;
-using System.Diagnostics.CodeAnalysis;
-using System.ComponentModel.Design;
+using Chizl.JsonTables.json;
+using Chizl.Crypto.aes;
 
 internal class Program
 {
@@ -31,8 +29,7 @@ internal class Program
     static readonly SecureString piSecureString = new();
     static readonly Guid testID = Guid.NewGuid();
         
-    [AllowNull]
-    static JsonHandler m_JsonProcessing;
+    public static JsonHandler m_JsonProcessing = new();
 
     static void Main()
     {
@@ -48,7 +45,8 @@ internal class Program
 
         // Connect and load existing dataset or prepare new one.
         // piSecureString is only used on fields that are SecuredString column types.
-        m_JsonProcessing = new(fileName, dataSetName, piSecureString);
+        // UseUTCDate default is true.  This is used if CreatedDate and ModifiedDate columns exists.
+        m_JsonProcessing = new(fileName, dataSetName, piSecureString) { UseUTCDate = true };
 
         CreateTable(tableName1, false);                     //create new table (1)
         CreateTable(tableName2, false);                     //create new table (2)
@@ -235,14 +233,15 @@ internal class Program
         if (m_JsonProcessing.TableExists(tableName, out CJRespInfo respStatus))
         {
             //create a new record
-            if(m_JsonProcessing.CreateRecord(tableName, out DataRow dr, out respStatus))
+            if(m_JsonProcessing.CreateNewRow(tableName, out DataRow dr, out respStatus))
             {
                 id = id == Guid.Empty ? Guid.NewGuid() : id;
                 dr[$"{ColNames.ID}"] = id;
                 dr[$"{ColNames.Name}"] = "Chizl Tester";
                 dr[$"{ColNames.Password}"] = JsonHandler.SecuredString(securedFieldValue1);
 
-                //Colums named: CreatedDate or ModifiedDate are auto filled, no requirement to set them, yourself.
+                //Colums named 'CreatedDate' or 'ModifiedDate' are auto filled, no requirement to set them yourself.
+                //if you do set them yourself, they will not be overwritten.
 
                 if (m_JsonProcessing.SaveRecord(tableName, dr, out respStatus))
                     msg = $"Success, Table '{tableName}' saved record id: {id}.";

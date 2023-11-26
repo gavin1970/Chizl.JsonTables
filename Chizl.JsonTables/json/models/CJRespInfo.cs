@@ -7,32 +7,6 @@ using System.Runtime.ConstrainedExecution;
 
 namespace Chizl.JsonTables.json
 {
-    public enum CJ_RESP_STATUS
-    {
-        Success = 0,
-        Warning = 1,
-        Error = 2
-    }
-
-    public enum METHOD_HISTORY
-    {
-        THIS_METHOD = 0,
-        CALLING_METHOD = 1,
-        PREVIOUS_METHOD = 2,
-    }
-
-    public static class ClassExtension
-    {
-        public static int ToInt(this METHOD_HISTORY mh)
-        {
-            return (int)mh;
-        }
-        public static int ToInt(this CJ_RESP_STATUS mh)
-        {
-            return (int)mh;
-        }
-    }
-
     public class CJRespInfo
     {
         public CJRespInfo()
@@ -87,6 +61,18 @@ namespace Chizl.JsonTables.json
                 }
             }
         }
+        public string LastWarningMessage
+        {
+            get
+            {
+                if (Warnings.Count == 0)
+                    return string.Empty;
+                else
+                {
+                    return Warnings[Warnings.Count - 1];
+                }
+            }
+        }
         public string AllErrorMessages
         {
             get
@@ -103,11 +89,11 @@ namespace Chizl.JsonTables.json
         {
             get
             {
-                if (Errors.Count == 0)
+                if (Warnings.Count == 0)
                     return string.Empty;
                 else
                 {
-                    return string.Join(Environment.NewLine, Errors);
+                    return string.Join(Environment.NewLine, Warnings);
                 }
             }
         }
