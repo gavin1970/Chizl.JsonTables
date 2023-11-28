@@ -18,6 +18,8 @@
 				<AssemblyVersion>3.11.0.0</AssemblyVersion>
 				<Version>3.11.26.0</Version>
 				<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+		    <PackageReadmeFile>README.md</PackageReadmeFile>
+				<PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     </PropertyGroup>
 
     <ItemGroup>
@@ -38,6 +40,14 @@
         <None Include="Chizl.JsonTables.png">
             <Pack>True</Pack>
             <PackagePath>\</PackagePath>
+        </None>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\docs\</PackagePath>
+        </None>
+        <None Include="LICENSE.md">
+            <Pack>True</Pack>
+            <PackagePath>\docs\</PackagePath>
         </None>
     </ItemGroup>
 
