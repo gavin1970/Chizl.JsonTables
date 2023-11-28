@@ -31,7 +31,11 @@
     </ItemGroup>
 		
     <ItemGroup>
-        <None Update="Chizl.JsonTables.ico">
+        <None Include="Chizl.JsonTables.ico">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+        <None Include="Chizl.JsonTables.png">
             <Pack>True</Pack>
             <PackagePath>\</PackagePath>
         </None>
