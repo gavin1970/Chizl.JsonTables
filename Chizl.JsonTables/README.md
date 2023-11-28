@@ -6,7 +6,7 @@
 Chizl.JsonTables uses the popular Newtonsoft.Json Library with an extention of DataSets and DataTables.  You use this library as you would DataSets and it produces JSON including schemas of your dataset for you.  All data is in memory as a DataSet to make it fast and auto updates the Json for all data changes.  Structure changes require a Flush().
 This libary also supports SecuredString Columns.  This means, you can have a PI data in memory that is secured and AES encrypted that is converted to Base64 strings in your Json.  This is done via AES Encryption with salted passwords you pass into constructor.  
 
-#### Not Recommended <img src="fa-crown.svg" width="50" height="50">
+#### Not Recommended
 Salted password is not required, however default Key/Vector will be used for encrypting any SecureString columns in JSON.
 
 ## Build with
