@@ -282,22 +282,23 @@ internal class Program
                 var modifiedDate = dr[$"{ColNames.ModifiedDate}"];
                 //is a SecureString
                 var secPass = JsonHandler.GetColumn<SecureString>(dr, $"{ColNames.Password}");
-                //version 1 of pulling SecureString as clear value from DataRow.
-                //NOTE: Less secure, since SecureString is converted to string value in object and returned.
+                //Example 1 of pulling SecureString as clear value from DataRow.
+                //NOTE: Slightly less secure, since SecureString is converted to string value and returned.
                 var unSecPass1 = JsonHandler.GetColumn<string>(dr, $"{ColNames.Password}");
-                //version 2 of getting a clear value from the local SecureString var
-                //NOTE: Most secure, since it's returning SecureString as a NetworkCredentials
-                //object and "Password" is a property of NetworkCredentials.
+                //Example 2 of getting a clear value from the local SecureString var
+                //NOTE: More secure, since the SecureString being passed in, returns as a NetworkCredentials
+                //object.  "Password" is a property of the NetworkCredentials object being returned.
                 var unSecPass2 = JsonHandler.SecuredString(secPass).Password;
 
+                //this is only to show the alerting messages in orange.
                 bool passChanged = unSecPass1.Equals(securedFieldValue2);
                 string passWasAlert = passChanged ? $" <- Value Was: {securedFieldValue1}{Environment.NewLine}" : $"{Environment.NewLine}";
                 string cd = ((DateTime)createdDate).ToString("yyMMddHHmmss");
                 string md = ((DateTime)modifiedDate).ToString("yyMMddHHmmss");
-
-                bool dateChanged = !cd.Equals(md);
+                bool dateChanged = !cd.Equals(md);  //because milliseconds would be different, these were converted to string down to the seconds.
                 string dateWasAlert = dateChanged ? $" <- Value Was: {createdDate}{Environment.NewLine}" : $"{Environment.NewLine}";
 
+                //let display
                 Console.WriteLine("ID:\t\t\t{0}", id);
                 Console.WriteLine("Name:\t\t\t{0}", name);
                 Console.WriteLine("CreateDate:\t\t{0}", createdDate);

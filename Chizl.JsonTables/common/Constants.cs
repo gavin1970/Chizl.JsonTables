@@ -16,11 +16,7 @@
 
     public static class ClassExtension
     {
-        public static int ToInt(this METHOD_HISTORY mh)
-        {
-            return (int)mh;
-        }
-        public static int ToInt(this CJ_RESP_STATUS mh)
+        public static int Value(this METHOD_HISTORY mh)
         {
             return (int)mh;
         }

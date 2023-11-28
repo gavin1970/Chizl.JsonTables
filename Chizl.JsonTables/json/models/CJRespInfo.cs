@@ -100,13 +100,13 @@ namespace Chizl.JsonTables.json
 
         #region private Methods
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static string GetMethodName(METHOD_HISTORY lastMethod = METHOD_HISTORY.THIS_METHOD)
+        private static string GetMethodName(METHOD_HISTORY historyLoc = METHOD_HISTORY.THIS_METHOD)
         {
             string retVal;
 
             try
             {
-                StackTrace st = new StackTrace(new StackFrame(lastMethod.ToInt()));
+                StackTrace st = new StackTrace(new StackFrame(historyLoc.Value()));
                 retVal = String.Format("{0}.{1}", st.GetFrame(0).GetMethod().ReflectedType.FullName, st.GetFrame(0).GetMethod().Name);
             }
             catch
