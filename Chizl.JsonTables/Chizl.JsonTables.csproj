@@ -12,7 +12,7 @@
         <Nullable>disable</Nullable>
         <ApplicationIcon>Chizl.JsonTables.ico</ApplicationIcon>
         <Copyright>© 2023 chizl.com</Copyright>
-        <PackageIcon>Chizl.JsonTables.ico</PackageIcon>
+        <PackageIcon>Chizl.JsonTables.png</PackageIcon>
         <PackageTags>json;datatset;datatable;secure-columns;aes;crypto</PackageTags>
         <FileVersion>3.11.26.2027</FileVersion>
 				<AssemblyVersion>3.11.0.0</AssemblyVersion>
