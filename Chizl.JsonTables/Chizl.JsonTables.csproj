@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 		<PropertyGroup>
-				<TargetFrameworks>netstandard2.0;netstandard2.1;net47;net48;net6.0;net7.0</TargetFrameworks>
+				<TargetFrameworks>netstandard2.0;netstandard2.1;net47;net48;net6.0;net7.0;net8.0</TargetFrameworks>
 		</PropertyGroup>
 
     <PropertyGroup>
@@ -14,9 +14,9 @@
         <Copyright>© 2023 chizl.com</Copyright>
         <PackageIcon>Chizl.JsonTables.png</PackageIcon>
         <PackageTags>json;datatset;datatable;secure-columns;aes;crypto</PackageTags>
-        <FileVersion>3.11.26.2027</FileVersion>
-				<AssemblyVersion>3.11.0.0</AssemblyVersion>
-				<Version>3.11.26.0</Version>
+        <FileVersion>4.1.22.1035</FileVersion>
+				<Version>4.1.22.0</Version>
+				<AssemblyVersion>4.1.0.0</AssemblyVersion>
 				<EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
 		    <PackageReadmeFile>README.md</PackageReadmeFile>
 				<PackageLicenseFile>LICENSE.md</PackageLicenseFile>

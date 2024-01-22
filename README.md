@@ -19,6 +19,7 @@ Salted password is not required, however default Key/Vector will be used for enc
 - net48
 - net6.0
 - net7.0
+- net8.0
 
 ## Dependency
 - Newtonsoft.Json v13.0.3
