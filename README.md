@@ -7,7 +7,7 @@ Chizl.JsonTables uses the popular Newtonsoft.Json Library with an extention of D
 This libary also supports SecuredString Columns.  This means, you can have a PI data in memory that is secured and AES encrypted that is converted to Base64 strings in your Json.  This is done via AES Encryption with salted passwords you pass into constructor.  
 
 #### Not Recommended
-Salted password is not required, however default Key/Vector will be used for encrypting any SecureString columns in JSON.
+Salted passwords are not required, however default Key/Vector will be used for encrypting any SecureString columns in JSON if you do not provide one.
 
 ## Build with
 - Microsoft Visual Studio Professional 2022 (64-bit)
