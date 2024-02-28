@@ -1,4 +1,4 @@
-# ![Logo1](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/Chizl.JsonTables_200.png)
+# ![Product Logo](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/Chizl.JsonTables_200.png)
 # Chizl.JsonTables
 
 [![NuGet version (Chizl.JsonTables)](https://img.shields.io/nuget/v/Chizl.JsonTables.svg?style=flat-square)](https://www.nuget.org/packages/Chizl.JsonTables/)
@@ -12,7 +12,8 @@ Salted passwords are not required, however default Key/Vector will be used for e
 ## Build with
 - Microsoft Visual Studio Professional 2022 (64-bit)
 
-## Supported by
+## Compiles .NET Versions
+# ![Versions](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/versions.png)
 - netstandard2.0
 - netstandard2.1
 - net47
