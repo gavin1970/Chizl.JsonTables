@@ -14,13 +14,6 @@ Salted passwords are not required, however default Key/Vector will be used for e
 
 ## Compiles .NET Versions
 # ![Versions](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/versions.png)
-- netstandard2.0
-- netstandard2.1
-- net47
-- net48
-- net6.0
-- net7.0
-- net8.0
 
 ## Dependency
 - Newtonsoft.Json v13.0.3
