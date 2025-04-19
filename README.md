@@ -1,4 +1,4 @@
-# ![Product Logo](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/Chizl.JsonTables_200.png)
+# ![Product Logo](https://raw.githubusercontent.com/gavin1970/Chizl.JsonTables/refs/heads/master/Chizl.JsonTables/imgs/Chizl.JsonTables_200.png)
 # Chizl.JsonTables
 
 <!-- [![NuGet version (Chizl.JsonTables)](https://img.shields.io/nuget/v/Chizl.JsonTables.svg?style=flat-square)](https://www.nuget.org/packages/Chizl.JsonTables/) -->
@@ -13,10 +13,12 @@ Salted passwords are not required, however default Key/Vector will be used for e
 - Microsoft Visual Studio Professional 2022 (64-bit)
 
 ## Compiles as
-# ![Versions](https://github.com/gavin1970/Chizl.JsonTables/blob/master/Chizl.JsonTables/imgs/versions.png)
+- ![NetFramework](https://img.shields.io/badge/.NET_Framework-v4.7_v4.8-blue)
+- ![NetStandard](https://img.shields.io/badge/.NET_Standard-v2.0_v2.1-blue)
+- ![NetCore](https://img.shields.io/badge/.NET-v6.0_v8.0_v9.0_-blue)
 
 ## Dependency
-- Newtonsoft.Json v13.0.3
+- ![Newtonsoft.Json](https://img.shields.io/badge/Newtonsoft.Json-v13.0.3-blue)
 
 ## Example of use
 - [net6.0 Demo Included](https://github.com/gavin1970/Chizl.JsonTables/tree/master/DemoConsole)
