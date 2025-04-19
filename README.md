@@ -6,12 +6,12 @@
 Chizl.JsonTables uses the popular Newtonsoft.Json Library with an extention of DataSets and DataTables.  You use this library as you would DataSets and it produces JSON including schemas of your dataset for you.  All data is in memory as a DataSet to make it fast and auto updates the Json for all data changes.  Structure changes require a Flush().
 This libary also supports SecuredString Columns.  This means, you can have a PI data in memory that is secured and AES encrypted that is converted to Base64 strings in your Json.  This is done via AES Encryption with salted passwords you pass into constructor.  
 
-#### Not Recommended
+### The following is not recommended
 Salted passwords are not required, however default Key/Vector will be used for encrypting any SecureString columns in JSON if you do not provide one.
 
 ## Build with
-- Microsoft Visual Studio Professional 2022 (64-bit)
-
+- Microsoft Visual Studio Professional 2022 (64-bit) Version 17.13.6
+ 
 ## Compiles as
 - ![NetFramework](https://img.shields.io/badge/.NET_Framework-v4.7_v4.8-blue)
 - ![NetStandard](https://img.shields.io/badge/.NET_Standard-v2.0_v2.1-blue)
