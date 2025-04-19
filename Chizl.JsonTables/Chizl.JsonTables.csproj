@@ -11,7 +11,7 @@
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>disable</Nullable>
         <ApplicationIcon>Chizl.JsonTables.ico</ApplicationIcon>
-        <Copyright>© 2023 chizl.com</Copyright>
+        <Copyright>© 2025 chizl.com</Copyright>
         <PackageIcon>Chizl.JsonTables.png</PackageIcon>
         <PackageTags>json;datatset;datatable;secure-columns;aes;crypto</PackageTags>
         <FileVersion>5.4.19.0329</FileVersion>
