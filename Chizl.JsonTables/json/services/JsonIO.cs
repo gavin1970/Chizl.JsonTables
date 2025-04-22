@@ -41,10 +41,7 @@ namespace Chizl.JsonTables.json
 
             return retVal;
         }
-        internal bool LoadFile(out JsonDataSet jsonDataSet, out CJRespInfo respStatus)
-        {
-            return LoadFile(string.Empty, out jsonDataSet, out respStatus);
-        }
+        internal bool LoadFile(out JsonDataSet jsonDataSet, out CJRespInfo respStatus) => LoadFile(string.Empty, out jsonDataSet, out respStatus);
         internal bool LoadFile(string dataSetName, out JsonDataSet jsonDataSet, out CJRespInfo respStatus)
         {
             bool retVal = false;
