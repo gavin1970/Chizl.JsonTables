@@ -81,20 +81,18 @@ namespace Chizl.JsonTables.json
                     this.mr_JsonFile = new JsonIO(this.DataFile);
                     this.DataExists = mr_JsonFile.FileExists;
 
-                    if (!this.DataExists)
-                    {
-                        respStatus.Errors.Add($"'{this.DataFile}' does not exists.");
-                        return retVal;
-                    }
-
                     this.mr_JsonConverter = new JsonDataConverter(this.DataSetName, this.mr_EncSalt);
                     this.mr_DataSet = new DataSet(this.DataSetName);
 
-                    retVal = mr_JsonFile.LoadFile(this.DataSetName, out JsonDataSet jsonDataSet, out respStatus);
-                    if (!retVal) return retVal;
+                    if (this.DataExists)
+                    {
+                        retVal = mr_JsonFile.LoadFile(this.DataSetName, out JsonDataSet jsonDataSet, out respStatus);
 
-                    if (jsonDataSet != null && !jsonDataSet.DataSetName.Equals(Constants.DEFAULT_LOADING))
-                        mr_JsonConverter.ToDataSet(jsonDataSet, out mr_DataSet, out respStatus);
+                        if (!retVal) return retVal;
+
+                        if (jsonDataSet != null && !jsonDataSet.DataSetName.Equals(Constants.DEFAULT_LOADING))
+                            mr_JsonConverter.ToDataSet(jsonDataSet, out mr_DataSet, out respStatus);
+                    }
 
                     retVal = !respStatus.HasErrors;
                     this.mr_IsInitialized = retVal;
