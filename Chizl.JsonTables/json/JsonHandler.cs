@@ -174,9 +174,14 @@ namespace Chizl.JsonTables.json
                 //Could be warnings, warnings occur if column already exists.
                 //We don't want to break for column exists.
                 if (!success && respStatus.HasErrors)
+                {
+                    hadException = true;
                     break;
+                }
                 else if (success)
                     successList.Add(col.ColumnName);
+                //else => respStatus.HasWarnings
+                    //If the column already exists and it will be ignored, but with warnings.
             }
 
             //back out all that were added.
