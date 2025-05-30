@@ -785,6 +785,30 @@ namespace Chizl.JsonTables.json
 
             return retVal;
         }
+        /// <summary>
+        /// Get the record count of the entire table.
+        /// </summary>
+        public bool RecordCount(string tableName, out int recordCount, out CJRespInfo respStatus) => RecordCount(tableName, string.Empty, out recordCount, out respStatus);
+        /// <summary>
+        /// Get the record count by query.
+        /// </summary>
+        public bool RecordCount(string tableName, string where, out int recordCount, out CJRespInfo respStatus)
+        {
+            bool retVal = false;
+
+            recordCount = 0;
+            respStatus = new CJRespInfo();
+            if (!Initialized(ref respStatus))
+                return retVal;
+
+            if (GetRecords(tableName, where, null, out DataRow[] dataRows, out respStatus))
+            {
+                recordCount = dataRows.Length;
+                retVal = true;
+            }
+
+            return retVal;
+        }
         #endregion
 
         #region Encryption Methods
