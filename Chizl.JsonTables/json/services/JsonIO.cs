@@ -30,10 +30,6 @@ namespace Chizl.JsonTables.json
                     {
                         string json = JsonConvert.SerializeObject(jsonDataSet, Formatting.Indented);
 
-                        //using (FileStream fsOverwrite = new FileStream(m_FileName, FileMode.Create))
-                        //using (StreamWriter writer = new StreamWriter(fsOverwrite))
-                        //    writer.WriteLine(json);
-                       
                         File.WriteAllText(m_FileName, json);
                         retVal = true;
                     }
