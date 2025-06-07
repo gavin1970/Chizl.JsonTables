@@ -29,7 +29,12 @@ namespace Chizl.JsonTables.json
                     else
                     {
                         string json = JsonConvert.SerializeObject(jsonDataSet, Formatting.Indented);
-                        File.WriteAllText(m_FileName, json);
+
+                        using (FileStream fsOverwrite = new FileStream(m_FileName, FileMode.Create))
+                        using (StreamWriter writer = new StreamWriter(fsOverwrite))
+                            writer.WriteLineAsync(json);
+                       
+                        //File.WriteAllText(m_FileName, json);
                         retVal = true;
                     }
                 }
@@ -48,9 +53,9 @@ namespace Chizl.JsonTables.json
             respStatus = new CJRespInfo();
 
             if (string.IsNullOrWhiteSpace(dataSetName))
-                dataSetName = Constants.DEFAULT_LOADING;
+                dataSetName = Constants.DEFAULT_DATASET;
 
-            lock ((m_Locker))
+            lock (m_Locker)
             {
                 jsonDataSet = new JsonDataSet(dataSetName);
 
@@ -65,7 +70,7 @@ namespace Chizl.JsonTables.json
                         string json = File.ReadAllText(m_FileName);
                         if (!string.IsNullOrWhiteSpace(json))
                         {
-                            JsonDataSet allDataSetData = (JsonDataSet)JsonConvert.DeserializeObject(json, typeof(JsonDataSet));
+                            JsonDataSet allDataSetData = JsonConvert.DeserializeObject<JsonDataSet>(json);
                             if (allDataSetData == null)
                                 respStatus.Errors.Add($"{Constants.JSON_FORMAT_EXCEPTION}\n\t{m_FileName}"); 
                             else if (allDataSetData.DataSetName.Equals(dataSetName))

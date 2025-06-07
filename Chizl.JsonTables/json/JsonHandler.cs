@@ -90,7 +90,7 @@ namespace Chizl.JsonTables.json
 
                         if (!retVal) return retVal;
 
-                        if (jsonDataSet != null && !jsonDataSet.DataSetName.Equals(Constants.DEFAULT_LOADING))
+                        if (jsonDataSet != null)
                             mr_JsonConverter.ToDataSet(jsonDataSet, out mr_DataSet, out respStatus);
                     }
 

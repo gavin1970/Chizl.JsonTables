@@ -232,7 +232,7 @@ namespace Chizl.JsonTables.json
                 if (!string.IsNullOrWhiteSpace(jds.DataSetName))
                     ds.DataSetName = jds.DataSetName;
                 else
-                    ds.DataSetName = $"{Constants.BASE_DATASET_NAME}_{DateTime.UtcNow.Ticks}";
+                    ds.DataSetName = Constants.DEFAULT_DATASET;
 
                 //loop through Json tables and add them to DataSet
                 foreach (JsonDataTable jdt in jds.DataTables)

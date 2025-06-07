@@ -26,8 +26,7 @@
     {
         public static readonly string NOT_INITIALIZED = "Instance of class not initialized.";
         public static readonly string SEC_STR_WRAPPER = "#B64AES#";
-        public static readonly string BASE_DATASET_NAME = "ChizlJsonTables";
-        public static readonly string DEFAULT_LOADING = "Loading";
+        public static readonly string DEFAULT_DATASET = "ChizlJtDataSet";
         public static readonly string JSON_FORMAT_EXCEPTION = "Unexpected Json format.";
         public static readonly string ARGS_MISSING = "Missing required argument.";
         public static readonly string TABLE_MISSING = "Table not found.";
